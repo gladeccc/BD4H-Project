@@ -2,11 +2,10 @@
 
 
 '''
-main.py 为程序入口
 '''
 
 
-# 基本依赖包
+
 import os
 import sys
 import time
@@ -28,7 +27,7 @@ import torch.backends.cudnn as cudnn
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 
-# 自定义文件
+
 import loss
 import models
 import function
@@ -36,9 +35,11 @@ import loaddata
 # import framework
 from loaddata import dataloader
 from models import lstm
+from models import GRU
+from models import lstm_tunning
 import plots
 
-# 全局变量
+
 args = parse.args
 args.hard_mining = 0
 args.gpu = 1
@@ -46,25 +47,21 @@ args.use_trend = max(args.use_trend, args.use_value)
 args.use_value = max(args.use_trend, args.use_value)
 args.rnn_size = args.embed_size
 args.hidden_size = args.embed_size
+args.model = 'LSTM' # GRU or LSTM or LSTM_tunning
 
 def train_eval(p_dict, phase='train'):
-    ### 传入参数
+
     epoch = p_dict['epoch']
-    model = p_dict['model']           # 模型
-    loss = p_dict['loss']             # loss 函数
+    model = p_dict['model']
+    loss = p_dict['loss']
     if phase == 'train':
-        data_loader = p_dict['train_loader']        # 训练数据
-        optimizer = p_dict['optimizer']             # 优化器
+        data_loader = p_dict['train_loader']
+        optimizer = p_dict['optimizer']
     else:
         data_loader = p_dict['val_loader']
 
-    ### 局部变量定义
+
     classification_metric_dict = dict()
-    # if args.task == 'case1':
-    # train_losses=[]
-    # train_accuracy=[]
-    # valid_losses=[]
-    # valid_accuracy = []
     for i,data in enumerate(tqdm(data_loader)):
         if args.use_visit:
             if args.gpu:
@@ -78,7 +75,7 @@ def train_eval(p_dict, phase='train'):
             labels = Variable(data[1].cuda())
             output = model(inputs)
 
-        # if 0:
+
         if args.task == 'task2':
             output, mask, time = output
             labels = labels.unsqueeze(-1).expand(output.size()).contiguous()
@@ -88,28 +85,19 @@ def train_eval(p_dict, phase='train'):
 
         classification_loss_output = loss(output, labels, args.hard_mining)
         loss_gradient = classification_loss_output[0]
-        # 计算性能指标
-        function.compute_metric(output, labels, time, classification_loss_output, classification_metric_dict, phase)
-        # print(outputs.size(), labels.size(),data[3].size(),segment_line_output.size())
-        # print('detection', detect_character_labels.size(), detect_character_output.size())
-        # return
 
-        # 训练阶段
+        function.compute_metric(output, labels, time, classification_loss_output, classification_metric_dict, phase)
+
+
         if phase == 'train':
             optimizer.zero_grad()
             loss_gradient.backward()
             optimizer.step()
 
-        # if i >= 10:
-        #     break
 
 
     print('\nEpoch: {:d} \t Phase: {:s} \n'.format(epoch, phase))
     metric= function.print_metric('classification', classification_metric_dict, phase)
-    # if phase=="train":
-    #     train_accuracy=train_accuracy.append(metric)
-    # if phase=="valid":
-    #     valid_accuracy=valid_accuracy.append(metric)
     if args.phase != 'train':
         print('metric = ', metric)
         print()
@@ -120,7 +108,6 @@ def train_eval(p_dict, phase='train'):
             p_dict['best_metric'] = [metric, epoch]
             function.save_model(p_dict)
             if 0:
-            # if args.task == 'task2':
                 preds = classification_metric_dict['preds'] 
                 labels = classification_metric_dict['labels'] 
                 times = classification_metric_dict['times'] 
@@ -209,7 +196,14 @@ def main():
 
 
     cudnn.benchmark = True
-    net = lstm.LSTM(args)
+
+    if args.model == 'GRU':
+        net = GRU.GRU(args)
+    elif args.model == 'LSTM':
+        net = lstm.LSTM(args)
+    elif args.model == 'LSTM_tunning':
+        net = lstm.LSTM(args)
+
     if args.gpu:
         net = net.cuda()
         p_dict['loss'] = loss.Loss().cuda()
@@ -223,8 +217,6 @@ def main():
     p_dict['optimizer'] = optimizer
     p_dict['model'] = net
     start_epoch = 0
-    # args.epoch = start_epoch
-    # print ('best_f1score' + str(best_f1score))
 
     p_dict['epoch'] = 0
     p_dict['best_metric'] = [0, 0]
@@ -252,16 +244,18 @@ def main():
             metric_train=train_eval(p_dict, 'train')
             metric_valid=train_eval(p_dict, 'val')
             train_f1score.append(metric_train)
-
             valid_f1score.append(metric_valid)
-            
+        max_f1_train=max(train_f1score)
+        max_f1_valid = max(valid_f1score)
         plt.plot(train_f1score, label='Training f1 Score')
+        plt.plot([max_f1_train]*(p_dict['epoch'] + 1), label='Training Max f1 Score: '+str(round(max_f1_train,4)))
         plt.plot(valid_f1score, label='Validation f1 Score')
+        plt.plot([max_f1_valid]*(p_dict['epoch'] + 1), label='Validation Max f1 Score: '+str(round(max_f1_valid,4)))
         plt.legend()
         plt.xlabel("epoch")
         plt.ylabel('f1 Score')
-        plt.title('f1 Score')
-        plt.savefig('f1 Score_Curve.png')
+        plt.title('f1 Score '+args.model)
+        plt.savefig('f1 Score_Curve_'+args.model+'.png')
         plt.cla()
         #
 
