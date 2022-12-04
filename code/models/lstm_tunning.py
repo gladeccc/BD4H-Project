@@ -40,13 +40,13 @@ class LSTM(nn.Module):
 
         self.linear_embed = nn.Sequential (
             nn.Linear ( opt.embed_size, opt.embed_size ),
-            nn.ReLU ( ),
+            nn.ReLU(),
             nn.Linear ( opt.embed_size, opt.embed_size ),
         )
         self.tv_mapping = nn.Sequential (
             nn.Linear ( opt.embed_size , int(opt.embed_size / 2)),
-            nn.ReLU ( ),
-            nn.Dropout ( 0.25 ),
+            nn.Sigmoid(),
+            nn.Dropout ( 0.35 ),
             nn.Linear (int( opt.embed_size / 2), opt.embed_size ),
         )
         self.alpha = nn.Linear(args.embed_size, 1)
@@ -57,50 +57,47 @@ class LSTM(nn.Module):
             no += 1
         self.output_time = nn.Sequential (
                 nn.Linear(opt.embed_size * no, opt.embed_size),
-                nn.ReLU ( ),
+                nn.Sigmoid(),
         )
 
         time = 200
         self.time_encoding = nn.Embedding.from_pretrained(time_encoding_data(opt.embed_size, time))
         self.time_mapping = nn.Sequential (
             nn.Linear ( opt.embed_size, opt.embed_size),
-            nn.ReLU ( ),
-            nn.Dropout ( 0.25 ),
+            nn.Sigmoid(),
+            nn.Dropout ( 0.35 ),
             nn.Linear ( opt.embed_size, opt.embed_size)
             )
 
         self.embed_linear = nn.Sequential (
             nn.Linear ( opt.embed_size, opt.embed_size),
-            nn.ReLU ( ),
-            # nn.Dropout ( 0.25 ),
-            # nn.Linear ( opt.embed_size, opt.embed_size),
-            # nn.ReLU ( ),
-            nn.Dropout ( 0.25 ),
+            nn.Sigmoid(),
+            nn.Dropout ( 0.35 ),
         )
         self.relu = nn.ReLU ( )
 
         self.linears = nn.Sequential (
             nn.Linear ( opt.hidden_size * 2, opt.rnn_size ),
-            nn.ReLU ( ),
-            nn.Dropout ( 0.25 ),
+            nn.Sigmoid(),
+            nn.Dropout ( 0.35 ),
             nn.Linear ( opt.rnn_size, 1),
         )
         mn = 128
         self.master_linear = nn.Sequential (
             nn.Linear ( 43, mn),
             # nn.ReLU ( ),
-            # nn.Dropout ( 0.25 ),
+            # nn.Dropout ( 0.35 ),
             # nn.Linear ( mn, mn),
-            nn.ReLU ( ),
-            nn.Dropout ( 0.25 ),
+            nn.Sigmoid(),
+            nn.Dropout ( 0.35 ),
             nn.Linear ( mn, 1),
         )
         self.output = nn.Sequential (
             nn.Linear ( mn + opt.rnn_size , opt.rnn_size),
-            nn.ReLU ( ),
+            nn.Sigmoid(),
             nn.Linear ( opt.rnn_size, mn),
-            nn.ReLU ( ),
-            nn.Dropout ( 0.25 ),
+            nn.Sigmoid(),
+            nn.Dropout ( 0.35 ),
             nn.Linear ( mn, 1),
         )
         self.pooling = nn.AdaptiveMaxPool1d(1)
